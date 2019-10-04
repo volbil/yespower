@@ -24,7 +24,7 @@ CFLAGS = -Wall -O2 -fomit-frame-pointer -I. -Iutils -Icrypto
 
 PROJ = benchmark
 OBJS_CORE = yespower.o
-OBJS_COMMON = sha256.o
+OBJS_COMMON = sha256.o blake2b.o
 OBJS_BENCHMARK = $(OBJS_CORE) $(OBJS_COMMON) benchmark.o
 CRYPTO = crypto/*.c
 OBJS_RM = *.o

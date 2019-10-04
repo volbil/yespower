@@ -31,7 +31,6 @@
 int main(int argc, const char * const *argv)
 {
 	yespower_params_t params = {
-		.version = YESPOWER_1_0,
 		.N = 2048,
 		.r = 32,
 		.pers = (const uint8_t *)"Client Key",

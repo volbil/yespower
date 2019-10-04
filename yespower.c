@@ -96,6 +96,7 @@
 
 #include "utils/insecure_memzero.h"
 #include "utils/sysendian.h"
+#include "crypto/blake2b.h"
 #include "crypto/sha256.h"
 
 #include "yespower.h"
@@ -1031,7 +1032,7 @@ int yespower(yespower_local_t *local,
     const yespower_params_t *params,
     yespower_binary_t *dst)
 {
-	yespower_version_t version = params->version;
+	yespower_version_t version = YESPOWER_1_0;
 	uint32_t N = params->N;
 	uint32_t r = params->r;
 	const uint8_t *pers = params->pers;
@@ -1041,10 +1042,10 @@ int yespower(yespower_local_t *local,
 	uint8_t *B, *S;
 	salsa20_blk_t *V, *XY;
 	pwxform_ctx_t ctx;
-	uint8_t sha256[32];
+	uint8_t init_hash[32];
 
 	/* Sanity-check parameters */
-	if ((version != YESPOWER_0_5 && version != YESPOWER_1_0) ||
+	if ((version != YESPOWER_1_0) ||
 	    N < 1024 || N > 512 * 1024 || r < 8 || r > 32 ||
 	    (N & (N - 1)) != 0 ||
 	    (!pers && perslen)) {
@@ -1055,15 +1056,11 @@ int yespower(yespower_local_t *local,
 	/* Allocate memory */
 	B_size = (size_t)128 * r;
 	V_size = B_size * N;
-	if (version == YESPOWER_0_5) {
-		XY_size = B_size * 2;
-		Swidth = Swidth_0_5;
-		ctx.Sbytes = 2 * Swidth_to_Sbytes1(Swidth);
-	} else {
-		XY_size = B_size + 64;
-		Swidth = Swidth_1_0;
-		ctx.Sbytes = 3 * Swidth_to_Sbytes1(Swidth);
-	}
+
+	XY_size = B_size + 64;
+	Swidth = Swidth_1_0;
+	ctx.Sbytes = 3 * Swidth_to_Sbytes1(Swidth);
+
 	need = B_size + V_size + XY_size + ctx.Sbytes;
 	if (local->aligned_size < need) {
 		if (free_region(local))
@@ -1078,38 +1075,29 @@ int yespower(yespower_local_t *local,
 	ctx.S0 = S;
 	ctx.S1 = S + Swidth_to_Sbytes1(Swidth);
 
-	SHA256_Buf(src, srclen, sha256);
+	// SHA256_Buf(src, srclen, init_hash);
 
-	if (version == YESPOWER_0_5) {
-		PBKDF2_SHA256(sha256, sizeof(sha256), src, srclen, 1,
-		    B, B_size);
-		memcpy(sha256, B, sizeof(sha256));
-		smix(B, r, N, V, XY, &ctx);
-		PBKDF2_SHA256(sha256, sizeof(sha256), B, B_size, 1,
-		    (uint8_t *)dst, sizeof(*dst));
+	blake2b_ctx bctx;
+	blake2b_init(&bctx, 32, NULL, 0);
+    blake2b_update(&bctx, src, srclen);
+    blake2b_final(&bctx, init_hash);
+    insecure_memzero(&bctx, sizeof(blake2b_ctx));
 
-		if (pers) {
-			HMAC_SHA256_Buf(dst, sizeof(*dst), pers, perslen,
-			    sha256);
-			SHA256_Buf(sha256, sizeof(sha256), (uint8_t *)dst);
-		}
+	ctx.S2 = S + 2 * Swidth_to_Sbytes1(Swidth);
+	ctx.w = 0;
+
+	if (pers) {
+		src = pers;
+		srclen = perslen;
 	} else {
-		ctx.S2 = S + 2 * Swidth_to_Sbytes1(Swidth);
-		ctx.w = 0;
-
-		if (pers) {
-			src = pers;
-			srclen = perslen;
-		} else {
-			srclen = 0;
-		}
-
-		PBKDF2_SHA256(sha256, sizeof(sha256), src, srclen, 1, B, 128);
-		memcpy(sha256, B, sizeof(sha256));
-		smix_1_0(B, r, N, V, XY, &ctx);
-		HMAC_SHA256_Buf(B + B_size - 64, 64,
-		    sha256, sizeof(sha256), (uint8_t *)dst);
+		srclen = 0;
 	}
+
+	PBKDF2_SHA256(init_hash, sizeof(init_hash), src, srclen, 1, B, 128);
+	memcpy(init_hash, B, sizeof(init_hash));
+	smix_1_0(B, r, N, V, XY, &ctx);
+	HMAC_SHA256_Buf(B + B_size - 64, 64,
+	    init_hash, sizeof(init_hash), (uint8_t *)dst);
 
 	/* Success! */
 	return 0;
@@ -1127,7 +1115,7 @@ fail:
  * Return 0 on success; or -1 on error.
  */
 int yespower_tls(const uint8_t *src, size_t srclen,
-    const yespower_params_t *params, yespower_binary_t *dst)
+	const yespower_params_t *params, yespower_binary_t *dst)
 {
 	static __thread int initialized = 0;
 	static __thread yespower_local_t local;
