@@ -30,79 +30,79 @@
 
 int main(int argc, const char * const *argv)
 {
-	yespower_params_t params = {
-		.N = 2048,
-		.r = 32,
-		.pers = (const uint8_t *)"Client Key",
-		.perslen = 10
-	};
+    yespower_params_t params = {
+        .N = 2048,
+        .r = 32,
+        .pers = (const uint8_t *)"Client Key",
+        .perslen = 10
+    };
 
-	if (argc > 1)
-		params.version = atoi(argv[1]);
-	if (argc > 2)
-		params.N = atoi(argv[2]);
-	if (argc > 3)
-		params.r = atoi(argv[3]);
+    if (argc > 1)
+        params.version = atoi(argv[1]);
+    if (argc > 2)
+        params.N = atoi(argv[2]);
+    if (argc > 3)
+        params.r = atoi(argv[3]);
 
-	printf("version=%.1f N=%u r=%u\n",
-	    params.version * 0.1, params.N, params.r);
+    printf("version=%.1f N=%u r=%u\n",
+        params.version * 0.1, params.N, params.r);
 
-	printf("Will use %.2f KiB RAM\n", 0.125 * params.N * params.r);
+    printf("Will use %.2f KiB RAM\n", 0.125 * params.N * params.r);
 
-	static __thread union {
-		uint8_t u8[80];
-		uint32_t u32[20];
-	} src;
-	yespower_binary_t dst;
-	unsigned int i;
+    static __thread union {
+        uint8_t u8[80];
+        uint32_t u32[20];
+    } src;
+    yespower_binary_t dst;
+    unsigned int i;
 
-	for (i = 0; i < sizeof(src); i++)
-		src.u8[i] = i * 3;
+    for (i = 0; i < sizeof(src); i++)
+        src.u8[i] = i * 3;
 
-	if (yespower_tls(src.u8, sizeof(src), &params, &dst)) {
-		puts("FAILED");
-		return 1;
-	}
+    if (yespower_tls(src.u8, sizeof(src), &params, &dst)) {
+        puts("FAILED");
+        return 1;
+    }
 
-	for (i = 0; i < sizeof(dst); i++)
-		printf("%02x%c", dst.uc[i], i < sizeof(dst) - 1 ? ' ' : '\n');
+    for (i = 0; i < sizeof(dst); i++)
+        printf("%02x%c", dst.uc[i], i < sizeof(dst) - 1 ? ' ' : '\n');
 
-	puts("Benchmarking 1 thread ...");
+    puts("Benchmarking 1 thread ...");
 
-	clock_t clk_tck = sysconf(_SC_CLK_TCK);
-	struct tms start_tms, end_tms;
-	clock_t start = times(&start_tms), end;
-	unsigned int n;
-	unsigned long long count;
-	uint32_t seed = start * 1812433253U;
+    clock_t clk_tck = sysconf(_SC_CLK_TCK);
+    struct tms start_tms, end_tms;
+    clock_t start = times(&start_tms), end;
+    unsigned int n;
+    unsigned long long count;
+    uint32_t seed = start * 1812433253U;
 
-	n = 1;
-	count = 0;
-	do {
-		for (i = 0; i < n; i++) {
-			yespower_binary_t *p = &dst;
-			src.u32[19] = seed + (count + i);
-			if (yespower_tls(src.u8, sizeof(src), &params, p)) {
-				puts("FAILED");
-				return 1;
-			}
-		}
-		count += n;
+    n = 1;
+    count = 0;
+    do {
+        for (i = 0; i < n; i++) {
+            yespower_binary_t *p = &dst;
+            src.u32[19] = seed + (count + i);
+            if (yespower_tls(src.u8, sizeof(src), &params, p)) {
+                puts("FAILED");
+                return 1;
+            }
+        }
+        count += n;
 
-		end = times(&end_tms);
-		n <<= 1;
-	} while (end - start < clk_tck * 2);
+        end = times(&end_tms);
+        n <<= 1;
+    } while (end - start < clk_tck * 2);
 
-	clock_t start_v = start_tms.tms_utime + start_tms.tms_stime +
-	    start_tms.tms_cutime + start_tms.tms_cstime;
-	clock_t end_v = end_tms.tms_utime + end_tms.tms_stime +
-	    end_tms.tms_cutime + end_tms.tms_cstime;
+    clock_t start_v = start_tms.tms_utime + start_tms.tms_stime +
+        start_tms.tms_cutime + start_tms.tms_cstime;
+    clock_t end_v = end_tms.tms_utime + end_tms.tms_stime +
+        end_tms.tms_cutime + end_tms.tms_cstime;
 
-	printf("%llu H/s real, %llu H/s virtual "
-	    "(%llu hashes in %.2f seconds)\n",
-	    count * clk_tck / (end - start),
-	    count * clk_tck / (end_v - start_v),
-	    count, (double)(end - start) / clk_tck);
+    printf("%llu H/s real, %llu H/s virtual "
+        "(%llu hashes in %.2f seconds)\n",
+        count * clk_tck / (end - start),
+        count * clk_tck / (end_v - start_v),
+        count, (double)(end - start) / clk_tck);
 
-	return 0;
+    return 0;
 }

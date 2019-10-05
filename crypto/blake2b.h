@@ -11,16 +11,16 @@
 
 // state context
 typedef struct {
-	uint8_t b[128]; // input buffer
-	uint64_t h[8];  // chained state
-	uint64_t t[2];  // total number of bytes
-	size_t c;       // pointer for b[]
-	size_t outlen;  // digest size
+    uint8_t b[128]; // input buffer
+    uint64_t h[8];  // chained state
+    uint64_t t[2];  // total number of bytes
+    size_t c;       // pointer for b[]
+    size_t outlen;  // digest size
 } blake2b_ctx;
 
 typedef struct {
-	blake2b_ctx inner;
-	blake2b_ctx outer;
+    blake2b_ctx inner;
+    blake2b_ctx outer;
 } hmac_ctx;
 
 #if defined(__cplusplus)
