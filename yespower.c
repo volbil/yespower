@@ -1086,7 +1086,7 @@ int yespower(yespower_local_t *local,
 		srclen = 0;
 	}
 
-	PBKDF2_blake2b(init_hash, sizeof(init_hash), src, srclen, 1, B, 128);
+	pbkdf2_blake2b(init_hash, sizeof(init_hash), src, srclen, 1, B, 128);
 	memcpy(init_hash, B, sizeof(init_hash));
 	smix_1_0(B, r, N, V, XY, &ctx);
 	hmac_blake2b_hash((uint8_t *)dst, B + B_size - 64, 64, init_hash, sizeof(init_hash));
