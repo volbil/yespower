@@ -273,8 +273,8 @@ void pbkdf2_blake2b(const uint8_t * passwd, size_t passwdlen, const uint8_t * sa
     hmac_ctx PShctx, hctx;
     size_t i;
     uint8_t ivec[4];
-    uint8_t U[64];
-    uint8_t T[64];
+    uint8_t U[32];
+    uint8_t T[32];
     uint64_t j;
     int k;
     size_t clen;
@@ -291,27 +291,30 @@ void pbkdf2_blake2b(const uint8_t * passwd, size_t passwdlen, const uint8_t * sa
         /* Compute U_1 = PRF(P, S || INT(i)). */
         memcpy(&hctx, &PShctx, sizeof(hmac_ctx));
         hmac_blake2b_update(&hctx, ivec, 4);
-            hmac_blake2b_final(&hctx,U);
+        hmac_blake2b_final(&hctx, U);
 
         /* T_i = U_1 ... */
-        memcpy(T, U, 64);
+        memcpy(T, U, 32);
 
         for (j = 2; j <= c; j++) {
             /* Compute U_j. */
             hmac_blake2b_init(&hctx, passwd, passwdlen);
-            hmac_blake2b_update(&hctx, U, 64);
+            hmac_blake2b_update(&hctx, U, 32);
             hmac_blake2b_final(&hctx, U);
 
             /* ... xor U_j ... */
-            for (k = 0; k < 64; k++)
+            for (k = 0; k < 32; k++) {
                 T[k] ^= U[k];
+            }
         }
 
         /* Copy as many bytes as necessary into buf. */
-        clen = dkLen - i * 64;
-        if (clen > 64)
-            clen = 64;
-        memcpy(&buf[i * 64], T, clen);
+        clen = dkLen - i * 32;
+        if (clen > 32) {
+            clen = 32;
+        }
+
+        memcpy(&buf[i * 32], T, clen);
     }
 
     /* Clean PShctx, since we never called _Final on it. */
