@@ -40,7 +40,7 @@ benchmark.o: benchmark.c
 .c.o:
 	$(CC) -c $(CFLAGS) $(CRYPTO) $*.c
 
-yespower.o: yespower-platform.c yespower.h
+yespower.o: yespower.h
 benchmark.o: yespower.h
 
 clean:
