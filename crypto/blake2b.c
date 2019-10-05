@@ -6,10 +6,10 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ *	notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ *	notice, this list of conditions and the following disclaimer in the
+ *	documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -31,7 +31,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "crypto/sph_types.h"
+#include <crypto/sph_types.h>
+#include "utils/sysendian.h"
 #include "blake2b.h"
 
 // Cyclic right rotation.
@@ -42,8 +43,8 @@
 
 // Little-endian byte access.
 
-#define B2B_GET64(p)                            \
-	(((uint64_t) ((uint8_t *) (p))[0]) ^        \
+#define B2B_GET64(p)							\
+	(((uint64_t) ((uint8_t *) (p))[0]) ^		\
 	(((uint64_t) ((uint8_t *) (p))[1]) << 8) ^  \
 	(((uint64_t) ((uint8_t *) (p))[2]) << 16) ^ \
 	(((uint64_t) ((uint8_t *) (p))[3]) << 24) ^ \
@@ -55,13 +56,13 @@
 // G Mixing function.
 
 #define B2B_G(a, b, c, d, x, y) {   \
-	v[a] = v[a] + v[b] + x;         \
+	v[a] = v[a] + v[b] + x;		 \
 	v[d] = ROTR64(v[d] ^ v[a], 32); \
-	v[c] = v[c] + v[d];             \
+	v[c] = v[c] + v[d];			 \
 	v[b] = ROTR64(v[b] ^ v[c], 24); \
-	v[a] = v[a] + v[b] + y;         \
+	v[a] = v[a] + v[b] + y;		 \
 	v[d] = ROTR64(v[d] ^ v[a], 16); \
-	v[c] = v[c] + v[d];             \
+	v[c] = v[c] + v[d];			 \
 	v[b] = ROTR64(v[b] ^ v[c], 63); }
 
 // Initialization Vector.
@@ -94,20 +95,20 @@ static void blake2b_compress(blake2b_ctx *ctx, int last)
 	int i;
 	uint64_t v[16], m[16];
 
-	for (i = 0; i < 8; i++) {           // init work variables
+	for (i = 0; i < 8; i++) {		   // init work variables
 		v[i] = ctx->h[i];
 		v[i + 8] = blake2b_iv[i];
 	}
 
-	v[12] ^= ctx->t[0];                 // low 64 bits of offset
-	v[13] ^= ctx->t[1];                 // high 64 bits
-	if (last)                           // last block flag set ?
+	v[12] ^= ctx->t[0];				 // low 64 bits of offset
+	v[13] ^= ctx->t[1];				 // high 64 bits
+	if (last)						   // last block flag set ?
 		v[14] = ~v[14];
 
-	for (i = 0; i < 16; i++)            // get little-endian words
+	for (i = 0; i < 16; i++)			// get little-endian words
 		m[i] = B2B_GET64(&ctx->b[8 * i]);
 
-	for (i = 0; i < 12; i++) {          // twelve rounds
+	for (i = 0; i < 12; i++) {		  // twelve rounds
 		B2B_G( 0, 4,  8, 12, m[sigma[i][ 0]], m[sigma[i][ 1]]);
 		B2B_G( 1, 5,  9, 13, m[sigma[i][ 2]], m[sigma[i][ 3]]);
 		B2B_G( 2, 6, 10, 14, m[sigma[i][ 4]], m[sigma[i][ 5]]);
@@ -123,31 +124,31 @@ static void blake2b_compress(blake2b_ctx *ctx, int last)
 }
 
 // Initialize the hashing context "ctx" with optional key "key".
-//      1 <= outlen <= 64 gives the digest size in bytes.
-//      Secret key (also <= 64 bytes) is optional (keylen = 0).
+//	  1 <= outlen <= 64 gives the digest size in bytes.
+//	  Secret key (also <= 64 bytes) is optional (keylen = 0).
 
 int blake2b_init(blake2b_ctx *ctx, size_t outlen,
-	const void *key, size_t keylen)        // (keylen=0: no key)
+	const void *key, size_t keylen)		// (keylen=0: no key)
 {
 	size_t i;
 
 	if (outlen == 0 || outlen > 64 || keylen > 64)
-		return -1;                      // illegal parameters
+		return -1;					  // illegal parameters
 
-	for (i = 0; i < 8; i++)             // state, "param block"
+	for (i = 0; i < 8; i++)			 // state, "param block"
 		ctx->h[i] = blake2b_iv[i];
 	ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
 
-	ctx->t[0] = 0;                      // input count low word
-	ctx->t[1] = 0;                      // input count high word
-	ctx->c = 0;                         // pointer within buffer
+	ctx->t[0] = 0;					  // input count low word
+	ctx->t[1] = 0;					  // input count high word
+	ctx->c = 0;						 // pointer within buffer
 	ctx->outlen = outlen;
 
-	for (i = keylen; i < 128; i++)      // zero input block
+	for (i = keylen; i < 128; i++)	  // zero input block
 		ctx->b[i] = 0;
 	if (keylen > 0) {
 		blake2b_update(ctx, key, keylen);
-		ctx->c = 128;                   // at the end
+		ctx->c = 128;				   // at the end
 	}
 
 	return 0;
@@ -156,40 +157,151 @@ int blake2b_init(blake2b_ctx *ctx, size_t outlen,
 // Add "inlen" bytes from "in" into the hash.
 
 void blake2b_update(blake2b_ctx *ctx,
-	const void *in, size_t inlen)       // data bytes
+	const void *in, size_t inlen)	   // data bytes
 {
 	size_t i;
 
 	for (i = 0; i < inlen; i++) {
-		if (ctx->c == 128) {            // buffer full ?
-			ctx->t[0] += ctx->c;        // add counters
-			if (ctx->t[0] < ctx->c)     // carry overflow ?
-				ctx->t[1]++;            // high word
+		if (ctx->c == 128) {			// buffer full ?
+			ctx->t[0] += ctx->c;		// add counters
+			if (ctx->t[0] < ctx->c)	 // carry overflow ?
+				ctx->t[1]++;			// high word
 			blake2b_compress(ctx, 0);   // compress (not last)
-			ctx->c = 0;                 // counter to zero
+			ctx->c = 0;				 // counter to zero
 		}
 		ctx->b[ctx->c++] = ((const uint8_t *) in)[i];
 	}
 }
 
 // Generate the message digest (size given in init).
-//      Result placed in "out".
+//	  Result placed in "out".
 
 void blake2b_final(blake2b_ctx *ctx, void *out)
 {
 	size_t i;
 
-	ctx->t[0] += ctx->c;                // mark last block offset
-	if (ctx->t[0] < ctx->c)             // carry overflow
-		ctx->t[1]++;                    // high word
+	ctx->t[0] += ctx->c;				// mark last block offset
+	if (ctx->t[0] < ctx->c)			 // carry overflow
+		ctx->t[1]++;					// high word
 
-	while (ctx->c < 128)                // fill up with zeros
+	while (ctx->c < 128)				// fill up with zeros
 		ctx->b[ctx->c++] = 0;
-	blake2b_compress(ctx, 1);           // final block flag = 1
+	blake2b_compress(ctx, 1);		   // final block flag = 1
 
 	// little endian convert and store
 	for (i = 0; i < ctx->outlen; i++) {
 		((uint8_t *) out)[i] =
 			(ctx->h[i >> 3] >> (8 * (i & 7))) & 0xFF;
 	}
+}
+
+// inlen = number of bytes
+void blake2b_hash(void *out, const void *in, size_t inlen) {
+    blake2b_ctx ctx;
+    blake2b_init(&ctx, 32, NULL, 0);
+    blake2b_update(&ctx, in, inlen);
+    blake2b_final(&ctx, out);
+}
+
+// // keylen = number of bytes
+void hmac_blake2b_init(hmac_ctx *hctx, const void *_key, size_t keylen) {
+	const uint8_t *key = _key;
+	uint8_t keyhash[32];
+	uint8_t pad[64];
+	uint64_t i;
+
+	if (keylen > 64) {
+		blake2b_hash(keyhash, key, keylen);
+		key = keyhash;
+		keylen = 32;
+	}
+
+	blake2b_init(&hctx->inner, 32, NULL, 0);
+	memset(pad, 0x36, 64);
+	for (i = 0; i < keylen; ++i) {
+		pad[i] ^= key[i];
+	}
+
+	blake2b_update(&hctx->inner, pad, 64);
+	blake2b_init(&hctx->outer, 32, NULL, 0);
+	memset(pad, 0x5c, 64);
+	for (i = 0; i < keylen; ++i) {
+		pad[i] ^= key[i];
+	}
+
+	blake2b_update(&hctx->outer, pad, 64);
+	memset(keyhash, 0, 32);
+}
+
+// datalen = number of bits
+void hmac_blake2b_update(hmac_ctx *hctx, const void *data, size_t datalen) {
+	// update the inner state
+	blake2b_update(&hctx->inner, data, datalen);
+}
+
+void hmac_blake2b_final(hmac_ctx *hctx, uint8_t *digest) {
+	uint8_t ihash[32];
+	blake2b_final(&hctx->inner, ihash);
+	blake2b_update(&hctx->outer, ihash, 32);
+	blake2b_final(&hctx->outer, digest);
+	memset(ihash, 0, 32);
+}
+
+// // keylen = number of bytes; inlen = number of bytes
+void hmac_blake2b_hash(void *out, const void *key, size_t keylen, const void *in, size_t inlen) {
+	hmac_ctx hctx;
+	hmac_blake2b_init(&hctx, key, keylen);
+	hmac_blake2b_update(&hctx, in, inlen);
+	hmac_blake2b_final(&hctx, out);
+}
+
+void PBKDF2_blake2b(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
+    size_t saltlen, uint64_t c, uint8_t * buf, size_t dkLen)
+{
+	hmac_ctx PShctx, hctx;
+	size_t i;
+	uint8_t ivec[4];
+	uint8_t U[64];
+	uint8_t T[64];
+	uint64_t j;
+	int k;
+	size_t clen;
+
+	/* Compute HMAC state after processing P and S. */
+	hmac_blake2b_init(&PShctx, passwd, passwdlen);
+	hmac_blake2b_update(&PShctx, salt, saltlen);
+
+	/* Iterate through the blocks. */
+	for (i = 0; i * 32 < dkLen; i++) {
+		/* Generate INT(i + 1). */
+		be32enc(ivec, (uint32_t)(i + 1));
+
+		/* Compute U_1 = PRF(P, S || INT(i)). */
+		memcpy(&hctx, &PShctx, sizeof(hmac_ctx));
+		hmac_blake2b_update(&hctx, ivec, 4);
+	        hmac_blake2b_final(&hctx,U);
+
+		/* T_i = U_1 ... */
+		memcpy(T, U, 64);
+
+		for (j = 2; j <= c; j++) {
+			/* Compute U_j. */
+		    hmac_blake2b_init(&hctx, passwd, passwdlen);
+			hmac_blake2b_update(&hctx, U, 64);
+			hmac_blake2b_final(&hctx, U);
+
+			/* ... xor U_j ... */
+			for (k = 0; k < 64; k++)
+				T[k] ^= U[k];
+		}
+
+		/* Copy as many bytes as necessary into buf. */
+		clen = dkLen - i * 64;
+		if (clen > 64)
+			clen = 64;
+		memcpy(&buf[i * 64], T, clen);
+	}
+
+	/* Clean PShctx, since we never called _Final on it. */
+	memset(&PShctx, 0, sizeof(hmac_ctx));
 }

@@ -18,6 +18,11 @@ typedef struct {
 	size_t outlen;  // digest size
 } blake2b_ctx;
 
+typedef struct {
+	blake2b_ctx inner;
+	blake2b_ctx outer;
+} hmac_ctx;
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -25,6 +30,10 @@ extern "C" {
 int blake2b_init(blake2b_ctx *ctx, size_t outlen, const void *key, size_t keylen);
 void blake2b_update(blake2b_ctx *ctx, const void *in, size_t inlen);
 void blake2b_final(blake2b_ctx *ctx, void *out);
+void blake2b_hash(void *out, const void *in, size_t inlen);
+void hmac_blake2b_hash(void *out, const void *key, size_t keylen, const void *in, size_t inlen);
+void PBKDF2_blake2b(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
+    size_t saltlen, uint64_t c, uint8_t * buf, size_t dkLen);
 
 #if defined(__cplusplus)
 }
