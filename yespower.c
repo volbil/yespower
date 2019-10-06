@@ -1131,7 +1131,7 @@ int yespower(yespower_local_t *local,
     /* Sanity-check parameters */
     if ((N < 1024 || N > 512 * 1024 || r < 8 || r > 32 ||
         (N & (N - 1)) != 0 ||
-        (!pers && perslen)) {
+        (!pers && perslen))) {
         errno = EINVAL;
         goto fail;
     }
