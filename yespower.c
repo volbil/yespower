@@ -1117,7 +1117,6 @@ int yespower(yespower_local_t *local,
     const yespower_params_t *params,
     yespower_binary_t *dst)
 {
-    yespower_version_t version = YESPOWER_1_0;
     uint32_t N = params->N;
     uint32_t r = params->r;
     const uint8_t *pers = params->pers;
@@ -1130,8 +1129,7 @@ int yespower(yespower_local_t *local,
     uint8_t init_hash[32];
 
     /* Sanity-check parameters */
-    if ((version != YESPOWER_1_0) ||
-        N < 1024 || N > 512 * 1024 || r < 8 || r > 32 ||
+    if ((N < 1024 || N > 512 * 1024 || r < 8 || r > 32 ||
         (N & (N - 1)) != 0 ||
         (!pers && perslen)) {
         errno = EINVAL;
